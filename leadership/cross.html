@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Quest: The Crossword Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        
+        body { 
+            font-family: 'Plus+Jakarta+Sans', sans-serif;
+            background: radial-gradient(circle at top left, #f8fafc, #e2e8f0);
+        }
+
+        .grid-cell {
+            width: 30px;
+            height: 30px;
+            position: relative;
+            perspective: 1000px;
+        }
+        @media (min-width: 768px) {
+            .grid-cell { width: 36px; height: 36px; }
+        }
+        
+        .cell-input {
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            text-transform: uppercase;
+            font-weight: 800;
+            font-size: 1.1rem;
+            border: 1px solid #cbd5e1;
+            outline: none;
+            background: #ffffff;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 4px;
+        }
+
+        .cell-input:focus {
+            background-color: #fef08a;
+            border-color: #eab308;
+            transform: scale(1.1) translateZ(10px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 30;
+        }
+
+        .cell-number {
+            position: absolute;
+            top: 2px;
+            left: 3px;
+            font-size: 0.65rem;
+            color: #94a3b8;
+            pointer-events: none;
+            z-index: 10;
+            font-weight: 600;
+        }
+
+        .black-cell {
+            background-color: #0f172a;
+            border-radius: 4px;
+        }
+
+        .correct-cell {
+            background-color: #dcfce7 !important;
+            color: #16a34a !important;
+            border-color: #86efac !important;
+            animation: success-pop 0.4s ease-out;
+        }
+
+        @keyframes success-pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .timer-glow {
+            text-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Dashboard -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            <div class="lg:col-span-1 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                <h1 class="text-2xl font-extrabold text-slate-900 leading-tight mb-1">CHARACTER QUEST</h1>
+                <p class="text-slate-500 text-sm mb-4 font-medium">Educational Crossword</p>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400 font-bold text-xs uppercase">Score</span>
+                        <span id="score-display" class="text-2xl font-black text-indigo-600">0</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400 font-bold text-xs uppercase">Timer</span>
+                        <span id="timer-display" class="text-2xl font-black text-slate-800 timer-glow">00:00</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="lg:col-span-3 bg-indigo-600 p-6 rounded-3xl shadow-lg flex items-center justify-between text-white overflow-hidden relative">
+                <div class="relative z-10">
+                    <h2 class="text-xl font-bold mb-2">Build Your Legacy</h2>
+                    <p class="text-indigo-100 text-sm max-w-md opacity-90">Unlock all 20 character traits to prove your wisdom. Every correct letter earns you points!</p>
+                </div>
+                <div class="hidden md:block opacity-20 transform translate-x-10">
+                    <svg width="150" height="150" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+            <!-- Grid Container -->
+            <div class="xl:col-span-8">
+                <div class="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-xl border border-slate-200 overflow-auto flex justify-center custom-scroll">
+                    <div id="game-grid" class="grid gap-1 p-1 bg-slate-100 rounded-lg border-2 border-slate-200" style="grid-template-columns: repeat(22, minmax(0, 1fr));">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+                
+                <div class="mt-8 flex flex-wrap gap-4 justify-center">
+                    <button id="hint-trigger" class="bg-amber-400 hover:bg-amber-500 text-amber-950 font-extrabold py-4 px-10 rounded-2xl transition-all active:scale-95 shadow-lg flex items-center gap-3">
+                        <span>💡 REVEAL LETTER</span>
+                        <span class="text-xs bg-amber-950/10 px-2 py-1 rounded-md">-50 PTS</span>
+                    </button>
+                    <button id="reset-trigger" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-4 px-10 rounded-2xl transition-all">
+                        RESET BOARD
+                    </button>
+                </div>
+            </div>
+
+            <!-- Clues Sidebar -->
+            <div class="xl:col-span-4 space-y-6">
+                <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 p-4">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-black text-slate-400 uppercase tracking-widest">Progress</span>
+                            <span id="progress-text" class="text-xs font-black text-indigo-600">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                            <div id="progress-bar" class="bg-indigo-600 h-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6 max-h-[600px] overflow-y-auto custom-scroll space-y-8">
+                        <div>
+                            <h3 class="flex items-center gap-2 text-indigo-600 font-black text-sm uppercase tracking-wider mb-4">
+                                <span class="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center">→</span> Across
+                            </h3>
+                            <ul id="list-across" class="space-y-4"></ul>
+                        </div>
+                        <div class="pt-6 border-t border-slate-100">
+                            <h3 class="flex items-center gap-2 text-indigo-600 font-black text-sm uppercase tracking-wider mb-4">
+                                <span class="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center">↓</span> Down
+                            </h3>
+                            <ul id="list-down" class="space-y-4"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Celebration Modal -->
+    <div id="win-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center z-50 p-6">
+        <div class="bg-white rounded-[3rem] p-10 max-w-md w-full text-center shadow-2xl">
+            <div class="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl">🎓</div>
+            <h2 class="text-4xl font-black text-slate-900 mb-2">GENIUS!</h2>
+            <p class="text-slate-500 mb-8 font-medium">You've successfully identified every character trait and value.</p>
+            <div class="grid grid-cols-2 gap-4 mb-8">
+                <div class="bg-slate-50 p-4 rounded-2xl">
+                    <div class="text-[10px] text-slate-400 font-black uppercase">Final Score</div>
+                    <div id="final-score" class="text-2xl font-black text-indigo-600">0</div>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-2xl">
+                    <div class="text-[10px] text-slate-400 font-black uppercase">Time</div>
+                    <div id="final-time" class="text-2xl font-black text-slate-800">0:00</div>
+                </div>
+            </div>
+            <button onclick="location.reload()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl transition-all shadow-lg shadow-indigo-200">
+                START NEW QUEST
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 22;
+        let score = 0;
+        let seconds = 0;
+        let active = true;
+        let timer;
+
+        const clues = {
+            across: [
+                { num: 2, r: 2, c: 4, word: "LEADERSHIP", text: "Guides others in achievement of a common goal." },
+                { num: 5, r: 4, c: 1, word: "HONESTY", text: "Speaks truthfully even when it is not easy." },
+                { num: 7, r: 6, c: 6, word: "ACADEMIC", text: "Published facts and research data." },
+                { num: 9, r: 8, c: 4, word: "GRIT", text: "Perseverance for long-term goals." },
+                { num: 11, r: 10, c: 3, word: "MATURITY", text: "Mental and emotional adult qualities." },
+                { num: 13, r: 12, c: 7, word: "EMPATHY", text: "Understanding feelings of another." },
+                { num: 15, r: 14, c: 1, word: "RESPONSIBILITY", text: "Accountable for own actions." },
+                { num: 17, r: 16, c: 5, word: "CARING", text: "Kindness and concern for others." },
+                { num: 18, r: 18, c: 9, word: "RESILIENCE", text: "Coping positively with stress." },
+                { num: 19, r: 2, c: 1, word: "INITIATIVE", text: "Independently taking steps." },
+                { num: 20, r: 20, c: 1, word: "EXPERIENCE", text: "Knowledge learned from doing." }
+            ],
+            down: [
+                { num: 1, r: 2, c: 7, word: "COMMUNITY", text: "Cultural practices passed down." },
+                { num: 3, r: 1, c: 14, word: "GROWTHMINDSET", text: "Belief that skills can be grown." },
+                { num: 4, r: 1, c: 16, word: "SELFAWARENESS", text: "Recognizing your own emotions." },
+                { num: 6, r: 4, c: 3, word: "INTEGRITY", text: "Acting on deep-seated convictions." },
+                { num: 8, r: 6, c: 11, word: "GRATITUDE", text: "Thankful for the good things." },
+                { num: 10, r: 7, c: 13, word: "SOCIALAWARENESS", text: "Recognizing others' perspectives." },
+                { num: 12, r: 10, c: 9, word: "COURAGE", text: "Brave in the face of difficulty." },
+                { num: 14, r: 12, c: 5, word: "CREATIVITY", text: "Original or unique ideas." },
+                { num: 16, r: 1, c: 18, word: "CULTURALHUMILITY", text: "Respecting diverse global beliefs." }
+            ]
+        };
+
+        const answerGrid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill('.'));
+
+        function setupGrid() {
+            [...clues.across, ...clues.down].forEach(item => {
+                const isDown = clues.down.some(d => d.num === item.num && d.word === item.word);
+                for(let i=0; i<item.word.length; i++) {
+                    const r = item.r + (isDown ? i : 0);
+                    const c = item.c + (isDown ? 0 : i);
+                    answerGrid[r][c] = item.word[i];
+                }
+            });
+        }
+
+        function renderBoard() {
+            const container = document.getElementById('game-grid');
+            for(let r=0; r<GRID_SIZE; r++) {
+                for(let c=0; c<GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    if(answerGrid[r][c] === '.') {
+                        cell.classList.add('black-cell');
+                    } else {
+                        const start = [...clues.across, ...clues.down].find(x => x.r === r && x.c === c);
+                        if(start) {
+                            const num = document.createElement('span');
+                            num.className = 'cell-number';
+                            num.innerText = start.num;
+                            cell.appendChild(num);
+                        }
+                        const input = document.createElement('input');
+                        input.className = 'cell-input';
+                        input.maxLength = 1;
+                        input.dataset.r = r;
+                        input.dataset.c = c;
+                        input.addEventListener('input', checkCell);
+                        input.addEventListener('keydown', handleNav);
+                        cell.appendChild(input);
+                    }
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        function checkCell(e) {
+            const r = e.target.dataset.r, c = e.target.dataset.c;
+            const val = e.target.value.toUpperCase();
+            if(val === answerGrid[r][c]) {
+                e.target.classList.add('correct-cell');
+                score += 10;
+                // Auto move focus
+                moveFocus(r, c, 0, 1) || moveFocus(r, c, 1, 0);
+            } else {
+                e.target.classList.remove('correct-cell');
+            }
+            updateStats();
+        }
+
+        function moveFocus(r, c, dr, dc) {
+            const next = document.querySelector(`input[data-r="${+r + dr}"][data-c="${+c + dc}"]`);
+            if(next) { next.focus(); return true; }
+            return false;
+        }
+
+        function handleNav(e) {
+            const r = e.target.dataset.r, c = e.target.dataset.c;
+            if(e.key === 'ArrowRight') moveFocus(r, c, 0, 1);
+            if(e.key === 'ArrowLeft') moveFocus(r, c, 0, -1);
+            if(e.key === 'ArrowDown') moveFocus(r, c, 1, 0);
+            if(e.key === 'ArrowUp') moveFocus(r, c, -1, 0);
+            if(e.key === 'Backspace' && !e.target.value) moveFocus(r, c, 0, -1);
+        }
+
+        function updateStats() {
+            const inputs = document.querySelectorAll('.cell-input');
+            const correct = Array.from(inputs).filter(i => i.value.toUpperCase() === answerGrid[i.dataset.r][i.dataset.c]).length;
+            const pct = Math.round((correct / inputs.length) * 100);
+            
+            document.getElementById('score-display').innerText = score;
+            document.getElementById('progress-bar').style.width = pct + '%';
+            document.getElementById('progress-text').innerText = pct + '%';
+
+            if(correct === inputs.length && active) {
+                active = false;
+                clearInterval(timer);
+                document.getElementById('final-score').innerText = score;
+                document.getElementById('final-time').innerText = document.getElementById('timer-display').innerText;
+                document.getElementById('win-modal').classList.remove('hidden');
+                document.getElementById('win-modal').classList.add('flex');
+            }
+        }
+
+        function initClues() {
+            const wrap = (c) => `<li class="group"><div class="text-[10px] font-black text-slate-400 mb-1">#${c.num} • ${c.word.length} LETTERS</div><div class="text-xs font-semibold text-slate-700 leading-relaxed group-hover:text-indigo-600 transition-colors">${c.text}</div></li>`;
+            document.getElementById('list-across').innerHTML = clues.across.sort((a,b)=>a.num-b.num).map(wrap).join('');
+            document.getElementById('list-down').innerHTML = clues.down.sort((a,b)=>a.num-b.num).map(wrap).join('');
+        }
+
+        document.getElementById('hint-trigger').onclick = () => {
+            if(score < 50) return;
+            const blanks = Array.from(document.querySelectorAll('.cell-input')).filter(i => !i.classList.contains('correct-cell'));
+            if(blanks.length) {
+                const rand = blanks[Math.floor(Math.random() * blanks.length)];
+                rand.value = answerGrid[rand.dataset.r][rand.dataset.c];
+                rand.classList.add('correct-cell');
+                score -= 50;
+                updateStats();
+            }
+        };
+
+        window.onload = () => {
+            setupGrid();
+            renderBoard();
+            initClues();
+            timer = setInterval(() => {
+                seconds++;
+                const m = Math.floor(seconds/60).toString().padStart(2, '0');
+                const s = (seconds%60).toString().padStart(2, '0');
+                document.getElementById('timer-display').innerText = `${m}:${s}`;
+            }, 1000);
+        };
+    </script>
+</body>
+</html>
