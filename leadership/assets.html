@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CharacterStrong | Power-Up Quiz</title>
+    <style>
+        :root { --charcoal: #333; --heart: #ff6b81; --gold: #f1c40f; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--charcoal); margin: 0; padding: 10px; }
+        .container { max-width: 800px; margin: 20px auto; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        
+        .progress-container { position: sticky; top: 0; background: white; padding: 10px 0; z-index: 100; border-bottom: 1px solid #eee; }
+        .progress-bar { height: 10px; width: 100%; background: #eee; border-radius: 5px; overflow: hidden; }
+        #progress-fill { height: 100%; width: 0%; background: var(--heart); transition: 0.4s; }
+
+        h1 { text-align: center; margin-bottom: 5px; font-weight: 800; color: var(--charcoal); }
+        .tagline { text-align: center; color: #888; margin-bottom: 30px; font-weight: 500; }
+
+        .question-card { background: #fff; border: 1px solid #e1e4e8; padding: 25px; border-radius: 15px; margin-bottom: 25px; transition: 0.3s; }
+        .question-card:hover { border-color: var(--heart); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .q-text { font-size: 1.15em; font-weight: 600; display: block; margin-bottom: 15px; }
+
+        /* Scenario Styles */
+        .scen-label { display: block; padding: 14px; margin: 10px 0; background: #f8f9fa; border-radius: 10px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .scen-label:hover { background: #f1f3f5; }
+        input[type="radio"] { margin-right: 12px; transform: scale(1.2); }
+        .scen-label:has(input:checked) { background: #fff0f2; border-color: var(--heart); }
+
+        /* Likert scale */
+        .likert-flex { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; max-width: 500px; margin: auto; }
+        .likert-opt { text-align: center; }
+        .l-num { display: block; font-size: 0.8em; margin-top: 5px; color: #777; }
+
+        .btn-finish { width: 100%; padding: 20px; border: none; border-radius: 12px; background: var(--charcoal); color: white; font-size: 1.3em; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-finish:hover { background: var(--heart); transform: translateY(-3px); }
+
+        /* Results */
+        #results { display: none; text-align: center; animation: slideUp 0.6s ease-out; }
+        .badge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
+        @media (max-width: 600px) { .badge-grid { grid-template-columns: 1fr; } }
+        
+        .badge-card { background: #fff5f6; border: 2px solid var(--heart); padding: 25px; border-radius: 20px; text-align: left; }
+        .title-tag { font-size: 0.75em; background: var(--charcoal); color: white; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1px; }
+        .mission-box { background: white; margin-top: 15px; padding: 15px; border-radius: 10px; font-size: 0.95em; border-left: 5px solid var(--gold); }
+        
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="progress-container">
+        <div class="progress-bar"><div id="progress-fill"></div></div>
+        <p style="font-size: 0.8em; margin: 5px 0 0; text-align: right;" id="progress-text">0/30 Questions Answered</p>
+    </div>
+
+    <h1>CharacterStrong</h1>
+    <p class="tagline">Discover Your Personal Strengths & Weekly Missions</p>
+
+    <form id="quizForm">
+        <div id="quiz-content"></div>
+        <button type="submit" class="btn-finish">UNLOCK MY PROFILE</button>
+    </form>
+
+    <div id="results">
+        <h2 style="font-size: 2em; margin-bottom: 0;">Achievement Unlocked!</h2>
+        <p style="color: #666;">Here are your top 5 strengths and your missions for this week:</p>
+        <div id="badge-display" class="badge-grid"></div>
+        <button onclick="window.print()" style="margin-top:40px; padding: 10px 20px; cursor: pointer; background: #eee; border: none; border-radius: 8px;">Print My Character Sheet</button>
+    </div>
+</div>
+
+<script>
+const questions = [
+    // 5 SCENARIOS (Focusing on Core Assets & Social-Emotional)
+    { id: "inte", name: "Integrity", type: "scen", title: "The Truth-Teller", q: "Scenario: You find a lost $20 bill in the gym. No one sees you pick it up. What's your first instinct?", mission: "Find a moment this week to be honest about a mistake, even if it's a small one.", opts: [{t: "Keep it for lunch money.", v: 1}, {t: "Leave it where it is.", v: 3}, {t: "Take it to the front office or a teacher.", v: 5}] },
+    { id: "resi", name: "Resilience", type: "scen", title: "The Mountain Mover", q: "Scenario: You studied hard but still failed a quiz. How do you walk into class the next day?", mission: "If you get stuck on a problem this week, ask a teacher for help instead of stopping.", opts: [{t: "Complain that it's unfair and stop trying.", v: 1}, {t: "Feel bad but try to ignore it.", v: 3}, {t: "Ask the teacher to explain what I missed so I can fix it.", v: 5}], w: 1.5 },
+    { id: "care", name: "Caring", type: "scen", title: "The Heart-Builder", q: "Scenario: You see a student you don't know well drop their books in a crowded hallway. People are walking around them. You...", mission: "Go out of your way to hold a door or help someone with a task today.", opts: [{t: "Keep walking to my next class.", v: 1}, {t: "Hope someone else helps them.", v: 3}, {t: "Stop and help them pick everything up.", v: 5}] },
+    { id: "grit", name: "Grit", type: "scen", title: "The Marathon Runner", q: "Scenario: You're trying to learn a hard song on an instrument or a play in sports. It's frustrating. You...", mission: "Commit to 20 minutes of 'undistracted' practice on your hardest subject tonight.", opts: [{t: "Switch to something easier.", v: 1}, {t: "Practice only the parts I'm already good at.", v: 3}, {t: "Slow down and practice the hardest part until I get it.", v: 5}], w: 1.5 },
+    { id: "resist", name: "Resistance Skills", type: "scen", title: "The Guardian", q: "Scenario: A group of friends is pressuring you to sneak out of the cafeteria or skip a class. You...", mission: "Say 'no' to one peer influence this week that doesn't feel right to you.", opts: [{t: "Go with them so I don't look uncool.", v: 1}, {t: "Make an excuse so I don't have to go.", v: 3}, {t: "Tell them I'm not doing it and stay where I'm supposed to be.", v: 5}] },
+
+    // 25 LIKERT RANKINGS (Covering the rest of the PDF assets)
+    { id: "acad", name: "Academic Achievement", q: "I consistently work toward and achieve my academic goals.", mission: "Set one specific goal for your next big test or project." },
+    { id: "grow", name: "Growth Mindset", q: "I believe I can get smarter and more skilled by working hard.", mission: "When you feel 'bad' at something, add the word 'yet' to the end of the sentence.", w: 1.5 },
+    { id: "time", name: "Constructive Use of Time", q: "I spend my time outside of school in clubs, sports, or creative hobbies.", mission: "Try a new activity or club meeting you've never been to before." },
+    { id: "cour", name: "Courage", q: "I am brave enough to do the right thing even when I'm scared.", mission: "Stand up for someone who is being treated unfairly today." },
+    { id: "crea", name: "Creativity", q: "I enjoy thinking 'outside the box' to solve problems.", mission: "Find a creative way to complete a school assignment (like adding a drawing or a unique format)." },
+    { id: "cult", name: "Cultural Humility", q: "I respect and value people from different cultures and backgrounds.", mission: "Ask someone from a different background about a tradition they enjoy." },
+    { id: "work", name: "Disciplined Work Habits", q: "I stay focused and determined until my work is done.", mission: "Use a timer to work for 25 minutes straight without any distractions." },
+    { id: "empa", name: "Empathy", q: "I can understand and respond to how other people are feeling.", mission: "Check in on a friend who seems quieter than usual today." },
+    { id: "grat", name: "Gratitude", q: "I am aware of and thankful for the good things in my life.", mission: "Tell three people 'thank you' for specific things they did for you today." },
+    { id: "hones", name: "Honesty", q: "I speak truthfully even when it's not the easy thing to do.", mission: "Be 100% honest about something small you've been avoiding." },
+    { id: "init", name: "Initiative", q: "I take the first steps to solve a problem without being told to.", mission: "Clean up a mess or start a chore without being asked." },
+    { id: "lead", name: "Leadership", q: "I am comfortable guiding my peers toward a common goal.", mission: "Offer to lead the brainstorming in your next group activity." },
+    { id: "matu", name: "Maturity", q: "I handle my emotions and actions with calm and control.", mission: "Take three deep breaths before responding to something that makes you angry." },
+    { id: "plan", name: "Planning", q: "I make a plan before I start a big task or make a decision.", mission: "Map out your entire next week in a planner or on a calendar." },
+    { id: "reac", name: "Reaction to Challenges", q: "I stay optimistic even when things are going wrong.", mission: "Find one 'silver lining' (something good) in a bad situation today." },
+    { id: "resp", name: "Responsibility", q: "I am accountable for my choices and my mistakes.", mission: "If you make a mistake today, own it immediately without making excuses." },
+    { id: "role", name: "Role Model", q: "I look up to someone who sets a great example for me.", mission: "Write a short note to your role model telling them why you admire them." },
+    { id: "safe", name: "Safety", q: "I feel safe and protected in my home and school environment.", mission: "Identify one 'safe person' in the building you can always talk to." },
+    { id: "selfa", name: "Self-Awareness", q: "I recognize my emotions and how they affect my behavior.", mission: "Pause twice today to ask yourself, 'What am I feeling right now?'" },
+    { id: "conf", name: "Self-Confidence", q: "I am confident in my worth and my ability to succeed.", mission: "List three things you are genuinely good at and keep the list in your pocket." },
+    { id: "purp", name: "Sense of Purpose", q: "I believe my life and actions can make a positive difference.", mission: "Do one anonymous act of kindness for a neighbor or teacher." },
+    { id: "serv", name: "Service & Social Justice", q: "I volunteer or help promote fairness in my community.", mission: "Find a local volunteer opportunity you can join this month." },
+    { id: "socia", name: "Social Awareness", q: "I recognize and respect perspectives that are different from mine.", mission: "Listen to someone's opinion for 2 minutes without interrupting." },
+    { id: "supp", name: "Support (Adults)", q: "I have adults in my life who love and support my efforts.", mission: "Tell a supportive adult about a goal you are working on." },
+    { id: "herit", name: "Values Own Heritage", q: "I acknowledge and value my family history and background.", mission: "Ask an older family member to tell you a story about your heritage." }
+];
+
+const content = document.getElementById('quiz-content');
+questions.forEach((q, i) => {
+    const card = document.createElement('div');
+    card.className = 'question-card';
+    if (q.type === 'scen') {
+        card.innerHTML = `<span class="q-text">${i+1}. ${q.q}</span>` + 
+            q.opts.map(o => `<label class="scen-label"><input type="radio" name="${q.id}" value="${o.v}" required> ${o.t}</label>`).join('');
+    } else {
+        card.innerHTML = `<span class="q-text">${i+1}. ${q.q}</span><div class="likert-flex">
+            <div class="likert-opt"><input type="radio" name="${q.id}" value="1" required><span class="l-num">1<br>Never</span></div>
+            <div class="likert-opt"><input type="radio" name="${q.id}" value="2" required><span class="l-num">2</span></div>
+            <div class="likert-opt"><input type="radio" name="${q.id}" value="3" required><span class="l-num">3<br>Sometimes</span></div>
+            <div class="likert-opt"><input type="radio" name="${q.id}" value="4" required><span class="l-num">4</span></div>
+            <div class="likert-opt"><input type="radio" name="${q.id}" value="5" required><span class="l-num">5<br>Always</span></div>
+        </div>`;
+    }
+    content.appendChild(card);
+});
+
+// Real-time Progress
+document.getElementById('quizForm').addEventListener('change', () => {
+    const answered = new Set([...new FormData(document.getElementById('quizForm')).keys()]).size;
+    document.getElementById('progress-fill').style.width = (answered / 30 * 100) + "%";
+    document.getElementById('progress-text').innerText = answered + "/30 Questions Answered";
+});
+
+document.getElementById('quizForm').onsubmit = function(e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    let results = questions.map(q => ({
+        ...q,
+        finalScore: parseInt(fd.get(q.id)) * (q.w || 1)
+    })).sort((a,b) => b.finalScore - a.finalScore);
+
+    document.getElementById('quizForm').style.display = 'none';
+    document.querySelector('.progress-container').style.display = 'none';
+    document.getElementById('results').style.display = 'block';
+
+    const display = document.getElementById('badge-display');
+    results.slice(0, 5).forEach(res => {
+        display.innerHTML += `
+            <div class="badge-card">
+                <span class="title-tag">${res.title || 'Power Strength'}</span>
+                <h3 style="margin: 10px 0; color: var(--charcoal);">${res.name}</h3>
+                <div class="mission-box">
+                    <strong>WEEKLY MISSION:</strong><br>${res.mission}
+                </div>
+            </div>
+        `;
+    });
+    window.scrollTo(0,0);
+};
+</script>
+</body>
+</html>
